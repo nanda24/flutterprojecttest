@@ -1,7 +1,10 @@
+// ignore_for_file: unrelated_type_equality_checks
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutterprojectapps/addMoviePage.dart';
 
 class ListViewPage extends StatefulWidget {
   const ListViewPage({super.key});
@@ -12,13 +15,17 @@ class ListViewPage extends StatefulWidget {
 
 class _ListViewPageState extends State<ListViewPage> {
 
+  bool isShow = false;
+  
+  String message = "Please wait ...";
   List movie = [];
+
   final dio = Dio();
 
   @override
   void initState() {
-    readyMovieList();
     super.initState();
+    readyMovieList();
   }
 
   @override
@@ -26,34 +33,115 @@ class _ListViewPageState extends State<ListViewPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("MOVIE LIST"),
-      ),
-      body: Container(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(8),
-          itemCount: movie.length,
-          itemBuilder: (BuildContext context, int index) {
-
-            print(movie[index]);
-
-            return ListTile(
-              leading: FadeInImage(
-                image: NetworkImage(movie[index]['poster']), 
-                placeholder: AssetImage('assets/placeholder_image.jpg'),
-                width: 50,
-                height: 50,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  message = "Please wait ...";
+                });
+                readyMovieList();
+              },
+              child: Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white
+                ),
+                child: const Icon(
+                  Icons.refresh,
+                  color: Colors.blue,
+                ),
               ),
-              title: Text(movie[index]['title']),
-              subtitle: Text(
-                          movie[index]['description'],
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: true,
-                          maxLines: 3,
+            ),
+          )
+        ],
+      ),
+      body: SizedBox(
+        child: 
+        Scrollbar(
+          scrollbarOrientation: ScrollbarOrientation.right,
+          child: 
+          (!isShow)?
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Center(
+                child: CircularProgressIndicator(
+                ),
+              ),
+              const SizedBox(
+                height: 10,
+              ),
+              Text(message),
+            ],
+          )
+          :
+          ListView.separated(
+            padding: const EdgeInsets.all(8),
+            itemCount: movie.length,
+            itemBuilder: (BuildContext context, int index) {
+              return ListTile(
+                leading: FadeInImage(
+                  image: NetworkImage(movie[index]['poster']), 
+                  placeholder: const AssetImage('assets/placeholder_image.jpg'),
+                  width: 50,
+                  height: 50,
+                ),
+                title: Text(movie[index]['title']),
+                subtitle: Text(
+                            movie[index]['description'],
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
+                            maxLines: 2,
+                          ),
+                tileColor: Colors.blue[200],
+                onTap: () {
+                  showDialog(context: context, builder: (BuildContext context) =>
+                    AlertDialog(
+                      title: Text(movie[index]['title']),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Center(
+                              child: FadeInImage(
+                                image: NetworkImage(movie[index]['poster']), 
+                                placeholder: const AssetImage('assets/placeholder_image.jpg'),
+                              ),
+                            ),
+                            const Divider(),
+                            Text(
+                              movie[index]['description'],
+                              textAlign: TextAlign.justify,
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                          ],
                         ),
-              tileColor: Colors.green,
-              
-            );
-          },
-          separatorBuilder: (BuildContext context, int index) => const Divider(),
+                      ),
+                    )
+                  );
+                },
+              );
+            },
+            separatorBuilder: (BuildContext context, int index) => const Divider(),
+          ),
+        )
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context){
+              return const AddMoviePage();
+            })
+          );
+        },
+        backgroundColor: Colors.white,
+        child: const Icon(
+          Icons.add,
+          color: Colors.blue,
         ),
       ),
     );
@@ -61,11 +149,44 @@ class _ListViewPageState extends State<ListViewPage> {
 
   readyMovieList() async{
 
-    Response response;
-    response = await dio.get('https://dlabs-test.irufano.com/api/movie?size=10&page=1');
-    var data = response.data['data'];
-    for(int i=0;i<data.length;i++){
-      movie.add(data[i]);
+    setState(() {
+      isShow = false;
+    });
+
+    try{
+      Response response;
+      response = await dio.get('https://dlabs-test.irufano.com/api/movie?size=10&page=1');
+
+      if(response.statusCode == 200){
+        var data = response.data['data'];
+        for(int i=0;i<data.length;i++){
+          movie.add(data[i]);
+        }
+
+        setState(() {
+          isShow = true;
+        });
+
+      }else{
+        setState(() {
+          message = "Failed to load data ...";
+        });
+      }
+      
+    }catch(e){
+
+      setState(() {
+        message = "Failed to reach server ...";
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to reach server ...',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
     }
   }
 }
